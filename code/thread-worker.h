@@ -18,16 +18,28 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ucontext.h>
 
 typedef uint worker_t;
+
+typedef enum statuses{
+	
+	RUN, READY, ERROR; 
+
+} stats; 
 
 typedef struct TCB {
 	/* add important states in a thread control block */
 	// thread Id
+		worker_t threadID; 
 	// thread status
+		stats status; 
 	// thread context
+		ucontext_t context; 
 	// thread stack
+		void* stack; 
 	// thread priority
+		uint priority; 
 	// And more ...
 
 	// YOUR CODE HERE
