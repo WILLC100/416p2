@@ -1,8 +1,8 @@
 // File:	thread-worker.c
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: William Chen
+// username of iLab: whc27
+// iLab Server: 4
 
 #include "thread-worker.h"
 
@@ -15,22 +15,91 @@ double avg_resp_time=0;
 
 // INITAILIZE ALL YOUR OTHER VARIABLES HERE
 // YOUR CODE HERE
+static worker_t THREAD_ID = 0; 
+static bool schedulerinit = false; 
+static ucontext_t* schedulectx; 
 
+
+static linked_t* runq; 
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, 
                       void *(*function)(void*), void * arg) {
+		
+		if(!schedulerinit){
+			//SCHEDULER CONTEXT 
+			ucontext_t* schedulectx = malloc(sizeof(ucontext_t));
+			getcontext(schedulectx);
+			makecontext(schedulectx, schedule, 0);
+			schedulerinit = true; 
+
+			//ALL FOR MAIN THREAD 
+			tcb* maintcb = malloc(sizeof(tcb)); 
+
+			ucontext_t* mainctx = malloc(sizeof(ucontext_t)); 
+			getcontext(mainctx); 
+			maintcb->context = mainctx; 
+			maintcb->threadID = THREAD_ID; 
+			THREAD_ID++; 
+			maintcb->stack = (mainctx->uc_stack.ss_sp); 
+			maintcb->priority = 0; 
+
+
+			//list behavior
+			linked_t* runq = malloc(sizeof(linked_t)); 
+			runq->head = NULL;
+			runq->tail = NULL; 
+
+			insert_list(maintcb, runq);
+
+		}
+
 
        // - create Thread Control Block (TCB)
+	   tcb* control_block  = malloc(sizeof(tcb)); 
        // - create and initialize the context of this worker thread
+		ucontext_t* currentctx = malloc(sizeof(ucontext_t));
+		getcontext(currentctx); 
+		makecontext(currentctx, function, (int)arg); 
+
        // - allocate space of stack for this thread to run
+		void* stack = malloc(SIGSTKSZ); 
+
+		control_block->stack = stack; 
+		control_block->context = currentctx; 
+		control_block->threadID = THREAD_ID; 
+		control_block->status = READY; 
+		control_block->priority = 0; 
+
+
        // after everything is set, push this thread into run queue and 
+		 
+		insert_list(control_block, runq);
+	
        // - make it ready for the execution.
 
+		swapcontext(schedulectx,)
        // YOUR CODE HERE
 	
     return 0;
 };
+
+void insert_list(tcb* thread, linked_t* list){
+	node_t* currentn = malloc(sizeof(node_t));
+	currentn->thread = thread; 
+	currentn->next = NULL; 
+	
+	if(list->head == NULL){
+		list->head = currentn; 
+		list->tail = currentn; 
+	}else{
+
+		list->tail->next = currentn; 
+		list->tail = currentn; 
+	}
+
+
+}
 
 /* give CPU possession to other user-level worker threads voluntarily */
 int worker_yield() {

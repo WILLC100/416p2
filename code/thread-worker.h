@@ -19,12 +19,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ucontext.h>
+#include <signal.h>
+#include <stdbool.h>
+
 
 typedef uint worker_t;
 
 typedef enum statuses{
 	
-	RUN, READY, ERROR; 
+	RUN, READY, ERROR 
 
 } stats; 
 
@@ -57,6 +60,22 @@ typedef struct worker_mutex_t {
 
 // YOUR CODE HERE
 
+typedef struct node_t{
+
+	tcb* thread; 
+	node_t* next; 
+
+}node_t; 
+
+typedef struct linked_t{
+
+	node_t* head; 
+	node_t* tail; 
+
+}linked_t; 
+
+
+
 
 /* Function Declarations: */
 
@@ -86,6 +105,10 @@ int worker_mutex_unlock(worker_mutex_t *mutex);
 /* destroy the mutex */
 int worker_mutex_destroy(worker_mutex_t *mutex);
 
+
+//user functions 
+
+void insert_list(tcb* thread, linked_t* list); 
 
 /* Function to print global statistics. Do not modify this function.*/
 void print_app_stats(void);
