@@ -38,7 +38,7 @@ typedef struct TCB {
 	// thread status
 		stats status; 
 	// thread context
-		ucontext_t context; 
+		ucontext_t* context; 
 	// thread stack
 		void* stack; 
 	// thread priority
@@ -63,7 +63,7 @@ typedef struct worker_mutex_t {
 typedef struct node_t{
 
 	tcb* thread; 
-	node_t* next; 
+	struct node_t* next; 
 
 }node_t; 
 
@@ -109,6 +109,7 @@ int worker_mutex_destroy(worker_mutex_t *mutex);
 //user functions 
 
 void insert_list(tcb* thread, linked_t* list); 
+
 
 /* Function to print global statistics. Do not modify this function.*/
 void print_app_stats(void);

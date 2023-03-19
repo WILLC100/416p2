@@ -18,21 +18,22 @@ double avg_resp_time=0;
 static worker_t THREAD_ID = 0; 
 static bool schedulerinit = false; 
 static ucontext_t* schedulectx; 
-
-
+static tcb* currentTCB; 
 static linked_t* runq; 
+
+static void schedule();
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, 
                       void *(*function)(void*), void * arg) {
-		
+					printf("pass-1");
 		if(!schedulerinit){
 			//SCHEDULER CONTEXT 
 			ucontext_t* schedulectx = malloc(sizeof(ucontext_t));
 			getcontext(schedulectx);
 			makecontext(schedulectx, schedule, 0);
 			schedulerinit = true; 
-
+			printf("pass0");
 			//ALL FOR MAIN THREAD 
 			tcb* maintcb = malloc(sizeof(tcb)); 
 
@@ -43,7 +44,8 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 			THREAD_ID++; 
 			maintcb->stack = (mainctx->uc_stack.ss_sp); 
 			maintcb->priority = 0; 
-
+			printf("pass1"); 
+			currentTCB = maintcb;
 
 			//list behavior
 			linked_t* runq = malloc(sizeof(linked_t)); 
@@ -61,7 +63,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		ucontext_t* currentctx = malloc(sizeof(ucontext_t));
 		getcontext(currentctx); 
 		makecontext(currentctx, function, (int)arg); 
-
+		printf("pass2"); 
        // - allocate space of stack for this thread to run
 		void* stack = malloc(SIGSTKSZ); 
 
@@ -75,16 +77,19 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
        // after everything is set, push this thread into run queue and 
 		 
 		insert_list(control_block, runq);
-	
+		printf("pass3"); 
        // - make it ready for the execution.
 
-		swapcontext(schedulectx,)
-       // YOUR CODE HERE
+		swapcontext(currentTCB->context, schedulectx); 
+       printf("pass4"); 
+	   // YOUR CODE HERE
 	
     return 0;
 };
 
 void insert_list(tcb* thread, linked_t* list){
+	printf("done");
+
 	node_t* currentn = malloc(sizeof(node_t));
 	currentn->thread = thread; 
 	currentn->next = NULL; 
@@ -98,7 +103,7 @@ void insert_list(tcb* thread, linked_t* list){
 		list->tail = currentn; 
 	}
 
-
+	
 }
 
 /* give CPU possession to other user-level worker threads voluntarily */
@@ -184,7 +189,8 @@ static void schedule() {
 	// 		sched_mlfq();
 
 	// YOUR CODE HERE
-
+		printf("HELLO WORLD");
+		exit(0);
 // - schedule policy
 #ifndef MLFQ
 	// Choose PSJF
@@ -225,3 +231,18 @@ void print_app_stats(void) {
 
 // YOUR CODE HERE
 
+void red(){
+	printf("red");
+
+}
+
+int main(int argc, char **argv) {
+
+	/* Implement HERE */
+	worker_t wack = 0; 
+	printf("passmain0");
+	worker_create(&wack,NULL, red, NULL );
+	//insert_list(NULL, NULL);
+
+	return 0;
+}
