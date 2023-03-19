@@ -26,14 +26,17 @@ static void schedule();
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, 
                       void *(*function)(void*), void * arg) {
-					printf("pass-1");
+					//printf("pass-1\n");
 		if(!schedulerinit){
 			//SCHEDULER CONTEXT 
-			ucontext_t* schedulectx = malloc(sizeof(ucontext_t));
+			schedulectx = malloc(sizeof(ucontext_t));
 			getcontext(schedulectx);
+			schedulectx->uc_stack.ss_sp = malloc(SIGSTKSZ);
+			
+			
 			makecontext(schedulectx, schedule, 0);
 			schedulerinit = true; 
-			printf("pass0");
+			//printf("pass0\n");
 			//ALL FOR MAIN THREAD 
 			tcb* maintcb = malloc(sizeof(tcb)); 
 
@@ -44,28 +47,34 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 			THREAD_ID++; 
 			maintcb->stack = (mainctx->uc_stack.ss_sp); 
 			maintcb->priority = 0; 
-			printf("pass1"); 
+			
 			currentTCB = maintcb;
-
+			
 			//list behavior
-			linked_t* runq = malloc(sizeof(linked_t)); 
+			runq = malloc(sizeof(linked_t)); 
+			printf("%p\n", runq); 
 			runq->head = NULL;
 			runq->tail = NULL; 
+
+			//printf("passcur2\n");
 
 			insert_list(maintcb, runq);
 
 		}
 
-
+		//printf("PASSED IF\n");
        // - create Thread Control Block (TCB)
 	   tcb* control_block  = malloc(sizeof(tcb)); 
        // - create and initialize the context of this worker thread
+
+	   void* stack = malloc(SIGSTKSZ); 
 		ucontext_t* currentctx = malloc(sizeof(ucontext_t));
+		currentctx->uc_stack.ss_sp = stack;
 		getcontext(currentctx); 
 		makecontext(currentctx, function, (int)arg); 
-		printf("pass2"); 
+		//printf("pass2\n"); 
        // - allocate space of stack for this thread to run
-		void* stack = malloc(SIGSTKSZ); 
+		
 
 		control_block->stack = stack; 
 		control_block->context = currentctx; 
@@ -77,18 +86,18 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
        // after everything is set, push this thread into run queue and 
 		 
 		insert_list(control_block, runq);
-		printf("pass3"); 
+		//printf("pass3\n"); 
        // - make it ready for the execution.
 
 		swapcontext(currentTCB->context, schedulectx); 
-       printf("pass4"); 
+       //printf("pass4\n"); 
 	   // YOUR CODE HERE
 	
     return 0;
 };
 
 void insert_list(tcb* thread, linked_t* list){
-	printf("done");
+	//printf("done\n");
 
 	node_t* currentn = malloc(sizeof(node_t));
 	currentn->thread = thread; 
@@ -189,7 +198,8 @@ static void schedule() {
 	// 		sched_mlfq();
 
 	// YOUR CODE HERE
-		printf("HELLO WORLD");
+		//printf("HELLO WORLD\n");
+		swapcontext(schedulectx,currentTCB->context);
 		exit(0);
 // - schedule policy
 #ifndef MLFQ
@@ -231,18 +241,4 @@ void print_app_stats(void) {
 
 // YOUR CODE HERE
 
-void red(){
-	printf("red");
-
-}
-
-int main(int argc, char **argv) {
-
-	/* Implement HERE */
-	worker_t wack = 0; 
-	printf("passmain0");
-	worker_create(&wack,NULL, red, NULL );
-	//insert_list(NULL, NULL);
-
-	return 0;
-}
+ 

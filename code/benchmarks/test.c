@@ -12,7 +12,7 @@
  */
 
 void red(){
-	printf("red");
+	printf("red\n");
 
 }
 
@@ -20,9 +20,9 @@ int main(int argc, char **argv) {
 
 	/* Implement HERE */
 	worker_t wack = 0; 
-	printf("passmain0");
-	//worker_create(NULL,NULL,NULL, NULL );
-	insert_list(NULL, NULL);
+	printf("passmain0\n");
+	worker_create(&wack,NULL,red, NULL );
+	//insert_list(NULL, NULL);
 
 	return 0;
 }
