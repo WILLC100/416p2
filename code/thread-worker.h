@@ -27,7 +27,7 @@ typedef uint worker_t;
 
 typedef enum statuses{
 	
-	RUN, READY, ERROR 
+	RUN, READY, ERROR, EXIT
 
 } stats; 
 
@@ -44,6 +44,7 @@ typedef struct TCB {
 	// thread priority
 		uint priority; 
 	// And more ...
+		void* exitvals; 
 
 	// YOUR CODE HERE
 } tcb; 

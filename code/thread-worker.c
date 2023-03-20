@@ -18,7 +18,7 @@ double avg_resp_time=0;
 static worker_t THREAD_ID = 0; 
 static bool schedulerinit = false; 
 static ucontext_t* schedulectx; 
-static tcb* currentTCB; 
+static tcb* currentTCB; //initialized to main thread
 static linked_t* runq; 
 
 static void schedule();
@@ -47,6 +47,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 			THREAD_ID++; 
 			maintcb->stack = (mainctx->uc_stack.ss_sp); 
 			maintcb->priority = 0; 
+			maintcb->exitvals = 0;
 			
 			currentTCB = maintcb;
 			
@@ -79,8 +80,10 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		control_block->stack = stack; 
 		control_block->context = currentctx; 
 		control_block->threadID = THREAD_ID; 
+		THREAD_ID++; 
 		control_block->status = READY; 
 		control_block->priority = 0; 
+		control_block->exitvals = 0; 
 
 
        // after everything is set, push this thread into run queue and 
@@ -118,10 +121,13 @@ void insert_list(tcb* thread, linked_t* list){
 /* give CPU possession to other user-level worker threads voluntarily */
 int worker_yield() {
 	
+	
+	currentTCB->status = READY; 
+	swapcontext( currentTCB->context, schedulectx); 
+
 	// - change worker thread's state from Running to Ready
 	// - save context of this thread to its thread control block
 	// - switch from thread context to scheduler context
-
 	// YOUR CODE HERE
 	
 	return 0;
@@ -129,19 +135,35 @@ int worker_yield() {
 
 /* terminate a thread */
 void worker_exit(void *value_ptr) {
-	// - de-allocate any dynamic memory created when starting this thread
 
+	if(value_ptr != NULL){
+		currentTCB->exitvals = value_ptr;
+	}
+
+	currentTCB->status = EXIT; 
+	free(currentTCB->stack);
+	free(currentTCB->context);
+	
+
+	// - de-allocate any dynamic memory created when starting this thread
 	// YOUR CODE HERE
 };
 
 
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
+
+	
 	
 	// - wait for a specific thread to terminate
 	// - de-allocate any dynamic memory created by the joining thread
   
 	// YOUR CODE HERE
+
+	if(value_ptr != NULL){
+		return 1; 
+	}
+
 	return 0;
 };
 
