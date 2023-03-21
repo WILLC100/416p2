@@ -200,6 +200,7 @@ int worker_join(worker_t thread, void **value_ptr) {
 	if(waiteethread->status != EXIT){
 		currentTCB->status = WAIT; 
 		waiteethread->waiter = currentTCB->threadID; 
+		printf("wackjoin + %d\n", currentTCB->status);
 		swapcontext(currentTCB->context, schedulectx);
 	} 
 
@@ -207,7 +208,7 @@ int worker_join(worker_t thread, void **value_ptr) {
 	
 	//waitee thread always is in the free list at this point. remember to update the tcb pointer in the free list
 	free(waiteethread);
-
+	printf("wackjoin + %d\n", currentTCB->status);
 	swapcontext(currentTCB->context, schedulectx);
  
 	// - wait for a specific thread to terminate
@@ -270,8 +271,12 @@ static void schedule() {
 	// 		sched_mlfq();
 
 	// YOUR CODE HERE
-		//printf("HELLO WORLD\n");
-		swapcontext(schedulectx,currentTCB->context);
+		printf("HELLO WORLD\n");
+
+	 
+			swapcontext(schedulectx,thrdarr->array[0]->context);
+		 	printf("wackscheduler\n");
+		
 		exit(0);
 // - schedule policy
 #ifndef MLFQ

@@ -13,7 +13,7 @@
 
 void red(){
 	printf("red\n");
-
+	worker_exit(NULL);
 }
 
 int main(int argc, char **argv) {
@@ -22,6 +22,10 @@ int main(int argc, char **argv) {
 	worker_t wack = 0; 
 	printf("passmain0\n");
 	worker_create(&wack,NULL,red, NULL );
+	
+	worker_join(1,NULL);
+
+
 	//insert_list(NULL, NULL);
 
 	return 0;
