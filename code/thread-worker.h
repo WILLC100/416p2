@@ -27,7 +27,7 @@ typedef uint worker_t;
 
 typedef enum statuses{
 	
-	RUN, READY, ERROR, EXIT
+	RUN, READY, ERROR, EXIT, WAIT
 
 } stats; 
 
@@ -45,9 +45,36 @@ typedef struct TCB {
 		uint priority; 
 	// And more ...
 		void* exitvals; 
+	//thread waiting on this thread 
+		worker_t waiter; 
 
 	// YOUR CODE HERE
 } tcb; 
+
+typedef struct node_t{
+
+	uint threadnum; 
+	tcb* thread; 
+	struct node_t* next; 
+
+}node_t; 
+
+typedef struct linked_t{
+
+	node_t* head; 
+	node_t* tail; 
+
+}linked_t; 
+
+
+typedef struct staticthreadarr{
+
+	tcb** array; 
+	uint size; 
+	linked_t free; 
+
+} threadarr; 
+
 
 /* mutex struct definition */
 typedef struct worker_mutex_t {
@@ -61,19 +88,6 @@ typedef struct worker_mutex_t {
 
 // YOUR CODE HERE
 
-typedef struct node_t{
-
-	tcb* thread; 
-	struct node_t* next; 
-
-}node_t; 
-
-typedef struct linked_t{
-
-	node_t* head; 
-	node_t* tail; 
-
-}linked_t; 
 
 
 

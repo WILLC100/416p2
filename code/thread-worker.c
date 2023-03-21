@@ -17,29 +17,25 @@ double avg_resp_time=0;
 // YOUR CODE HERE
 static worker_t THREAD_ID = 0; 
 static bool schedulerinit = false; 
-static ucontext_t* schedulectx; 
-static tcb* currentTCB; //initialized to main thread
+static ucontext_t* schedulectx; //context scheduler
+static tcb* currentTCB; //initialized to main thread, main thread always has 0 as ID.
 static linked_t* runq; 
 
 static void schedule();
 
-/* create a new thread */
-int worker_create(worker_t * thread, pthread_attr_t * attr, 
-                      void *(*function)(void*), void * arg) {
-					//printf("pass-1\n");
-		if(!schedulerinit){
-			//SCHEDULER CONTEXT 
-			schedulectx = malloc(sizeof(ucontext_t));
-			getcontext(schedulectx);
-			schedulectx->uc_stack.ss_sp = malloc(SIGSTKSZ);
-			
-			
-			makecontext(schedulectx, schedule, 0);
-			schedulerinit = true; 
-			//printf("pass0\n");
-			//ALL FOR MAIN THREAD 
-			tcb* maintcb = malloc(sizeof(tcb)); 
+//Initialization 
+void worker_init(){
 
+	//Scheduler Setup 
+	schedulectx = malloc(sizeof(ucontext_t));
+	getcontext(schedulectx);
+	schedulectx->uc_stack.ss_sp = malloc(SIGSTKSZ);	
+	makecontext(schedulectx, schedule, 0);
+	schedulerinit = true; 
+			//printf("pass0\n");
+
+	//Main Thread Setup 
+			tcb* maintcb = malloc(sizeof(tcb)); 
 			ucontext_t* mainctx = malloc(sizeof(ucontext_t)); 
 			getcontext(mainctx); 
 			maintcb->context = mainctx; 
@@ -47,20 +43,26 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 			THREAD_ID++; 
 			maintcb->stack = (mainctx->uc_stack.ss_sp); 
 			maintcb->priority = 0; 
-			maintcb->exitvals = 0;
-			
+			maintcb->exitvals = NULL;
+			maintcb->status = RUN;  
+			maintcb->waiter = -1; 
 			currentTCB = maintcb;
 			
-			//list behavior
+	//List Setup
 			runq = malloc(sizeof(linked_t)); 
-			printf("%p\n", runq); 
+			//printf("%p\n", runq); 
 			runq->head = NULL;
 			runq->tail = NULL; 
-
-			//printf("passcur2\n");
-
 			insert_list(maintcb, runq);
+}
 
+/* create a new thread */
+int worker_create(worker_t * thread, pthread_attr_t * attr, 
+                      void *(*function)(void*), void * arg) {
+					//printf("pass-1\n");
+		if(!schedulerinit){
+			//SCHEDULER CONTEXT 
+			worker_init(); 
 		}
 
 		//printf("PASSED IF\n");
@@ -72,7 +74,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		ucontext_t* currentctx = malloc(sizeof(ucontext_t));
 		currentctx->uc_stack.ss_sp = stack;
 		getcontext(currentctx); 
-		makecontext(currentctx, function, (int)arg); 
+		makecontext(currentctx, function, (int)(long)arg); 
 		//printf("pass2\n"); 
        // - allocate space of stack for this thread to run
 		
@@ -83,15 +85,13 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		THREAD_ID++; 
 		control_block->status = READY; 
 		control_block->priority = 0; 
-		control_block->exitvals = 0; 
+		control_block->exitvals = NULL; 
+		control_block->waiter = -1;
 
 
-       // after everything is set, push this thread into run queue and 
-		 
-		insert_list(control_block, runq);
-		//printf("pass3\n"); 
+       // after everything is set, push this thread into run queue and 	
        // - make it ready for the execution.
-
+		insert_list(control_block, runq);
 		swapcontext(currentTCB->context, schedulectx); 
        //printf("pass4\n"); 
 	   // YOUR CODE HERE
@@ -103,6 +103,7 @@ void insert_list(tcb* thread, linked_t* list){
 	//printf("done\n");
 
 	node_t* currentn = malloc(sizeof(node_t));
+	currentn->threadnum = thread->threadID; 
 	currentn->thread = thread; 
 	currentn->next = NULL; 
 	
@@ -144,25 +145,29 @@ void worker_exit(void *value_ptr) {
 	free(currentTCB->stack);
 	free(currentTCB->context);
 	
+	getcontext(schedulectx);
+
 
 	// - de-allocate any dynamic memory created when starting this thread
 	// YOUR CODE HERE
 };
 
-
+ 
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
 
+	/*
+	Change this as described by ALEX in dc, 
+	switch back to scheduler context in worker exit
+	create static tcb pointer array for thread accessions 
+	create internal list of free pointers 
 	
-	
+	*/
+
+ 
 	// - wait for a specific thread to terminate
 	// - de-allocate any dynamic memory created by the joining thread
-  
 	// YOUR CODE HERE
-
-	if(value_ptr != NULL){
-		return 1; 
-	}
 
 	return 0;
 };
