@@ -20,11 +20,25 @@ static bool schedulerinit = false;
 static ucontext_t* schedulectx; //context scheduler
 static tcb* currentTCB; //initialized to main thread, main thread always has 0 as ID.
 static linked_t* runq; 
+static threadarr* thrdarr; 
+static linked_t* freeli; 
 
 static void schedule();
 
 //Initialization 
 void worker_init(){
+
+	//TCB ARRAY SETUP
+	thrdarr = malloc(sizeof(threadarr));
+	thrdarr->array = malloc(sizeof(tcb*)*THREADCOUNT);
+	thrdarr->size = 0; 
+	
+	thrdarr->freelist = malloc(sizeof(linked_t));
+	thrdarr->freelist->head = NULL;
+	thrdarr->freelist->tail = NULL; 
+
+	freeli = thrdarr->freelist;
+
 
 	//Scheduler Setup 
 	schedulectx = malloc(sizeof(ucontext_t));
@@ -40,6 +54,8 @@ void worker_init(){
 			getcontext(mainctx); 
 			maintcb->context = mainctx; 
 			maintcb->threadID = THREAD_ID; 
+			thrdarr->array[THREAD_ID] = maintcb;
+
 			THREAD_ID++; 
 			maintcb->stack = (mainctx->uc_stack.ss_sp); 
 			maintcb->priority = 0; 
@@ -47,6 +63,8 @@ void worker_init(){
 			maintcb->status = RUN;  
 			maintcb->waiter = -1; 
 			currentTCB = maintcb;
+
+			
 			
 	//List Setup
 			runq = malloc(sizeof(linked_t)); 
@@ -67,10 +85,10 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 
 		//printf("PASSED IF\n");
        // - create Thread Control Block (TCB)
-	   tcb* control_block  = malloc(sizeof(tcb)); 
+	   
        // - create and initialize the context of this worker thread
 
-	   void* stack = malloc(SIGSTKSZ); 
+	   	void* stack = malloc(SIGSTKSZ); 
 		ucontext_t* currentctx = malloc(sizeof(ucontext_t));
 		currentctx->uc_stack.ss_sp = stack;
 		getcontext(currentctx); 
@@ -78,10 +96,18 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		//printf("pass2\n"); 
        // - allocate space of stack for this thread to run
 		
-
+		tcb* control_block  = malloc(sizeof(tcb)); 
 		control_block->stack = stack; 
 		control_block->context = currentctx; 
 		control_block->threadID = THREAD_ID; 
+
+		if(THREAD_ID < THREADCOUNT){ //reminder: must handle case above threadcount and reassign threadID
+			thrdarr->array[THREAD_ID] = control_block;
+		}else{
+
+
+		}
+		
 		THREAD_ID++; 
 		control_block->status = READY; 
 		control_block->priority = 0; 
@@ -134,16 +160,25 @@ int worker_yield() {
 	return 0;
 };
 
+
 /* terminate a thread */
 void worker_exit(void *value_ptr) {
 
 	if(value_ptr != NULL){
-		currentTCB->exitvals = value_ptr;
+		currentTCB->exitvals = &value_ptr;
 	}
 
 	currentTCB->status = EXIT; 
 	free(currentTCB->stack);
 	free(currentTCB->context);
+
+	insert_list(currentTCB, freeli);
+	
+	//if a thread is being waited on, must indicate that the waitee is exited?
+	if(currentTCB->waiter > -1){
+		tcb* waiterthr = thrdarr->array[currentTCB->waiter];
+		waiterthr->status = READY; 
+	}
 	
 	getcontext(schedulectx);
 
@@ -156,14 +191,24 @@ void worker_exit(void *value_ptr) {
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
 
-	/*
-	Change this as described by ALEX in dc, 
-	switch back to scheduler context in worker exit
-	create static tcb pointer array for thread accessions 
-	create internal list of free pointers 
-	
-	*/
+	tcb* waiteethread = thrdarr->array[thread]; 
 
+	if(waiteethread->exitvals != NULL){
+		value_ptr = waiteethread->exitvals;
+	}
+
+	if(waiteethread->status != EXIT){
+		currentTCB->status = WAIT; 
+		waiteethread->waiter = currentTCB->threadID; 
+		swapcontext(currentTCB->context, schedulectx);
+	} 
+
+	currentTCB->status = READY;  
+	
+	//waitee thread always is in the free list at this point. remember to update the tcb pointer in the free list
+	free(waiteethread);
+
+	swapcontext(currentTCB->context, schedulectx);
  
 	// - wait for a specific thread to terminate
 	// - de-allocate any dynamic memory created by the joining thread

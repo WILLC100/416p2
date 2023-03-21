@@ -11,6 +11,7 @@
 
 /* To use Linux pthread Library in Benchmark, you have to comment the USE_WORKERS macro */
 #define USE_WORKERS 1
+#define THREADCOUNT 10000
 
 /* include lib header files that you need here: */
 #include <unistd.h>
@@ -27,7 +28,7 @@ typedef uint worker_t;
 
 typedef enum statuses{
 	
-	RUN, READY, ERROR, EXIT, WAIT
+	RUN, READY, ERROR, EXIT, WAIT, FREE
 
 } stats; 
 
@@ -44,7 +45,7 @@ typedef struct TCB {
 	// thread priority
 		uint priority; 
 	// And more ...
-		void* exitvals; 
+		void** exitvals; 
 	//thread waiting on this thread 
 		worker_t waiter; 
 
@@ -71,7 +72,7 @@ typedef struct staticthreadarr{
 
 	tcb** array; 
 	uint size; 
-	linked_t free; 
+	linked_t* freelist; 
 
 } threadarr; 
 
