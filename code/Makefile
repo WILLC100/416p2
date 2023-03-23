@@ -1,4 +1,4 @@
-SCHED=MLFQ
+SCHED=PSJF
 CC = gcc
 CFLAGS = -g -c
 AR = ar -rc

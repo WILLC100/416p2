@@ -11,19 +11,43 @@
  * This will not be graded.
  */
 
+void blue(){
+	printf("blue\n"); 
+	printf("blue\n"); 
+	sleep(1);
+	worker_exit(NULL);
+}
+ 
 void red(){
 	printf("red\n");
+
+ 
+	sleep(1);
 	worker_exit(NULL);
 }
 
 int main(int argc, char **argv) {
 
-	/* Implement HERE */
-	worker_t wack = 0; 
-	printf("passmain0\n");
-	worker_create(&wack,NULL,red, NULL );
 	
-	worker_join(1,NULL);
+	/* Implement HERE */
+	worker_t wack = 0;
+	printf("IN MAIN : priorcreate\n");
+
+	worker_create(wack,NULL, red , NULL );
+	worker_create(wack, NULL, blue, NULL);
+	worker_create(wack,NULL, red , NULL );
+	worker_create(wack, NULL, blue, NULL);
+	worker_create(wack,NULL, red , NULL );
+	worker_create(wack, NULL, blue, NULL);
+	worker_create(wack,NULL, red , NULL );
+	worker_create(wack, NULL, blue, NULL);
+	
+	//worker_create(&wack,NULL,red, NULL );
+	printf(" IN MAIN : passcreate\n");
+	//worker_join(1,NULL);
+	printf("IN MAIN :passjoin\n");
+
+	free(wack);
 
 
 	//insert_list(NULL, NULL);

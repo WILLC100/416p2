@@ -1,8 +1,8 @@
 // File:	worker_t.h
 
-// List all group member's name:
-// username of iLab:
-// iLab Server:
+// List all group member's name: William Chen
+// username of iLab: whc27
+// iLab Server: ilab4
 
 #ifndef WORKER_T_H
 #define WORKER_T_H
@@ -22,13 +22,15 @@
 #include <ucontext.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <sys/time.h>
+#include <string.h>
 
 
 typedef uint worker_t;
 
 typedef enum statuses{
 	
-	RUN, READY, ERROR, EXIT, WAIT, FREE
+	RUN, READY, ERROR, EXIT, WAIT, FREE, ZOMBIE
 
 } stats; 
 
@@ -47,14 +49,14 @@ typedef struct TCB {
 	// And more ...
 		void** exitvals; 
 	//thread waiting on this thread 
-		worker_t waiter; 
+		int waiter; 
 
 	// YOUR CODE HERE
 } tcb; 
 
 typedef struct node_t{
 
-	uint threadnum; 
+	worker_t threadnum; 
 	tcb* thread; 
 	struct node_t* next; 
 
@@ -124,7 +126,7 @@ int worker_mutex_destroy(worker_mutex_t *mutex);
 
 //user functions 
 
-void insert_list(tcb* thread, linked_t* list); 
+
 
 
 /* Function to print global statistics. Do not modify this function.*/
