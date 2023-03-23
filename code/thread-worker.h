@@ -47,7 +47,7 @@ typedef struct TCB {
 	// thread priority
 		uint priority; 
 	// And more ...
-		void** exitvals; 
+		void* exitvals; 
 	//thread waiting on this thread 
 		int waiter; 
 
@@ -82,6 +82,12 @@ typedef struct staticthreadarr{
 /* mutex struct definition */
 typedef struct worker_mutex_t {
 	/* add something here */
+
+	bool mutinit;
+
+	worker_t threadID; 
+	
+	tcb* mutTCB; 
 
 	// YOUR CODE HERE
 } worker_mutex_t;
