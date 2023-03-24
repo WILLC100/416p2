@@ -36,6 +36,8 @@ static void basicsched();
 node_t* create_node(tcb* thread);
 void worker_init();
 void insert_front_list(node_t* node, linked_t* list);
+static void sched_psjf();
+
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, 
@@ -73,11 +75,12 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		}
 		
 		THREAD_ID++; 
+		control_block->quantused = 0;
 		control_block->status = READY; 
 		control_block->priority = 0; 
 		control_block->exitvals = NULL; 
 		control_block->waiter = -1;
-		currentTCB->status = READY; 
+		
 		
 		makecontext(currentctx, function, (int)(long)arg); 
 		insert_list(create_node(control_block), runq);
@@ -189,11 +192,11 @@ int worker_join(worker_t thread, void **value_ptr) {
 	if(waiteethread->status != ZOMBIE){
 		currentTCB->status = WAIT; 
 		waiteethread->waiter = currentTCB->threadID; 
-		printf("			wackjoin + %d\n", waiteethread->waiter);
+		printf("			wackjoin + %d\n waitee : %d\n", waiteethread->waiter, thread);
 		swapcontext(currentTCB->context, schedulectx);
 	} 
 
-	currentTCB->status = READY;  
+	//currentTCB->status = READY;  
 	
 	//waitee thread always is in the free list at this point. remember to update the tcb pointer in the free list
 	free(waiteethread);
@@ -255,23 +258,25 @@ static void schedule() {
 	// schedule() function
 	
 	
-	basicsched(); // FCFS
+	//basicsched(); // FCFS
 	 
 
 	// - invoke scheduling algorithms according to the policy (PSJF or MLFQ)
 
-	// if (sched == PSJF)
-	//		sched_psjf();
-	// else if (sched == MLFQ)
-	// 		sched_mlfq();
+	/* if (SCHED == PSJF)
+			sched_psjf();
+		else if (SCHED == MLFQ)
+	 		sched_mlfq(); */
 
 	// YOUR CODE HERE
 		
 // - schedule policy
 #ifndef MLFQ
 	// Choose PSJF
+	sched_psjf();
 #else 
 	// Choose MLFQ
+
 #endif
 
 }
@@ -280,6 +285,56 @@ static void schedule() {
 static void sched_psjf() {
 	// - your own implementation of PSJF
 	// (feel free to modify arguments and return types)
+	while(1){
+		
+		node_t* currentnode = list_pop(runq); //must perform list search, cannot pop immediately
+		currentTCB = currentnode->thread; 
+		printf("\n	START SCHED NODE POPPED %d\n", currentnode->threadnum);
+		if(currentTCB->status == READY || currentTCB->status == MAIN){
+			//printf("THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
+			currentTCB->status = RUN; 
+			printf(" PRIOR SWAP THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
+			setitimer(ITIMER_PROF, &timer, NULL);
+			swapcontext(schedulectx, currentTCB->context);
+
+			currentTCB->quantused += 1;
+			printf("AFTER SWAP THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
+			
+		
+		}
+		//if zombie(exited) or wait(blocked), insert into appropriate list
+		if(currentTCB->status == ZOMBIE){
+			insert_list(currentnode, zombielist);
+			printf("ZOMBIED : %d\n", currentnode->threadnum);
+		}
+		if( currentTCB->status == WAIT){
+			insert_list(currentnode, runq);
+			printf("WAITING\n");
+		}
+		//if thread has not terminated, insert into the front/back of the list based on the quantum used. 
+		if(currentTCB->status == RUN){
+				currentTCB->status = READY;
+				if(runq->head == NULL){
+					insert_list(currentnode, runq);
+					printf("NULL HEAD EXCHANGED CURRENT HEAD \n");
+				}
+				printf("HEAD ID %d HEAD Qu %d, Current ID %d Current Qu %d \n ", 
+				runq->head->threadnum, runq->head->thread->quantused, 
+				currentTCB->threadID, currentTCB->quantused );
+
+				if(runq->head->thread->quantused > currentTCB->quantused ){
+
+					insert_front_list(currentnode, runq);
+				}else{
+					insert_list(currentnode, runq);
+				}
+				
+		}
+
+
+	}
+
+
 
 	// YOUR CODE HERE
 }
@@ -310,12 +365,15 @@ void print_app_stats(void) {
  node_t* list_pop(linked_t* list){
 
 		node_t* topop = list->head; 
+		
 	//	printf("	POP STATUS %d THREAD %d\n", list->head->thread->status , list->head->thread->threadID);
 		if(list->head != NULL){
 			list->head = topop->next;
+			topop->next = NULL;
 			//printf("Next %p\n", topop->next);
 		}
-		//printf("TOPOP %p\n", topop);
+		
+	//	printf("POPPED %d\n", topop->threadnum);
 		return topop; 
 
  }
@@ -340,7 +398,7 @@ static void basicsched(){
 			swapcontext(schedulectx, currentTCB->context);
 			
 
-			if(currentTCB == mainTCB){
+			if(currentTCB == mainTCB ){
 				insert_front_list(currentnode, runq);
 			} else if(currentTCB->status == RUN || currentTCB->status == READY){
 				currentTCB->status = READY; 
@@ -352,9 +410,11 @@ static void basicsched(){
 			insert_list(currentnode, zombielist);
 
 		}
+		
 		if( currentTCB->status == WAIT){
 			insert_list(currentnode, runq);
 		}
+
 
 		printf("List Head : %p\n", runq->head);
 	}
@@ -370,6 +430,7 @@ static void basicsched(){
 
 void ring(int signum){
 	printf("TIMER DEATH\n");
+	swapcontext(currentTCB->context, schedulectx);
 	
 }
 
@@ -386,7 +447,7 @@ void worker_init(){
 	timer.it_interval.tv_usec = 0; 
 	timer.it_interval.tv_sec = 0;
 
-	timer.it_value.tv_usec = 10000;
+	timer.it_value.tv_usec = QUANTUM;
 	timer.it_value.tv_sec = 0;
 
 	//setitimer(ITIMER_PROF, &timer, NULL);
@@ -436,10 +497,10 @@ void worker_init(){
 			printf("Thread ID %d\n", THREAD_ID);
 
 			THREAD_ID++; 
-			
+			mainTCB->quantused = 0;
 			mainTCB->priority = 0; 
 			mainTCB->exitvals = NULL;
-			mainTCB->status = RUN;  
+			mainTCB->status = MAIN;  
 		//	printf("status %d, ThreadID %d\n", mainTCB->status, mainTCB->threadID);
 			mainTCB->waiter = -1; 
 			currentTCB = mainTCB;

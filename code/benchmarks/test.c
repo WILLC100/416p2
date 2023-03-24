@@ -13,16 +13,28 @@
 
 void blue(){
 	printf("blue\n"); 
-	printf("blue\n"); 
+	 
 	for(int i =0; i<10000000; i++);
+	printf("blue2\n");
+	worker_exit(NULL);
+
+}
+
+void green(){
+	printf("green\n");
+	for(int i =0; i<10000000; i++);
+	printf("green2\n");
 	worker_exit(NULL);
 }
  
 void red(){
 	printf("red\n");
-
+	worker_t wack1[1];
+	worker_create(wack1, NULL, green, NULL);
+	worker_join(wack1[0], NULL);
  
 	for(int i =0; i<10000000; i++);
+	printf("red2\n");
 	worker_exit(NULL);
 }
 
@@ -37,7 +49,7 @@ int main(int argc, char **argv) {
 	worker_t wack[10];
 	printf("IN MAIN : priorcreate\n");
 
-	
+	worker_create(wack+8, NULL, blue, NULL);
 	worker_create(wack,NULL, red , NULL );
 	worker_create(wack+6,NULL, red , NULL );
 	worker_create(wack+1, NULL, blue, NULL);
@@ -48,6 +60,7 @@ int main(int argc, char **argv) {
 	worker_create(wack+7, NULL, blue, NULL);
 printf(" IN MAIN : passcreate\n");
 	worker_join(wack[4], NULL);
+	//exit(0);
 	worker_join(wack[0], NULL);
 	worker_join(wack[1], NULL);
 	worker_join(wack[2], NULL);
