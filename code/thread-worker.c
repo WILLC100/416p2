@@ -32,12 +32,13 @@ static linked_t* zombielist;
 void insert_list(node_t* node, linked_t* list); 
 static void schedule();
 static node_t* list_pop(linked_t* list);
+static node_t* list_pop_minq(linked_t* list);
 static void basicsched();
 node_t* create_node(tcb* thread);
 void worker_init();
 void insert_front_list(node_t* node, linked_t* list);
 static void sched_psjf();
-
+static void print_list(linked_t* list);
 
 /* create a new thread */
 int worker_create(worker_t * thread, pthread_attr_t * attr, 
@@ -49,7 +50,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 			schedulerinit = true;  
 		}
 
-		//printf("PASSED IF\n");
+	
        // - create Thread Control Block (TCB)
        // - create and initialize the context of this worker thread
 
@@ -68,7 +69,7 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		control_block->context = currentctx; 
 		control_block->threadID = THREAD_ID; 
 		*thread = THREAD_ID;
-
+		 
 		if(THREAD_ID < THREADCOUNT){ //reminder: must handle case above threadcount and reassign threadID
 			thrdarr->array[THREAD_ID] = control_block;
 		}else{
@@ -81,16 +82,15 @@ int worker_create(worker_t * thread, pthread_attr_t * attr,
 		control_block->exitvals = NULL; 
 		control_block->waiter = -1;
 		
-		
-		makecontext(currentctx, function, (int)(long)arg); 
+		//printf("Makecont\n");
+		makecontext(currentctx, (void (*) (void)) function, *((int*)arg)); 
+	//printf("Makecont\n");
 		insert_list(create_node(control_block), runq);
 	//	printf("status %d, ThreadID %d\n", mainTCB->status, mainTCB->threadID);
        // after everything is set, push this thread into run queue and 	
        // - make it ready for the execution.
-	
-		printf("IN CREATE: Pass to scheduler\n");
-		//setcontext(schedulectx);
-		printf("IN CREATE: current thread %d\n", currentTCB->threadID);
+
+		printf("IN CREATE: current thread %d\n PASSING TO SCHEDULER \n", currentTCB->threadID);
 		
 	//	printf("status %d, ThreadID %d\n", mainTCB->status, mainTCB->threadID);
 		swapcontext(currentTCB->context, schedulectx); 
@@ -114,14 +114,23 @@ void insert_list(node_t* node, linked_t* list){
 	//printf("	INSERT LIST : THREAD %d, Status %d  \n", node->thread->threadID, node->thread->status );
 	//printf("List Head : %p\n", list->head);
 
-	if(list->head == NULL){
+	if(list->size == 0){
 		list->head = node; 
 		list->tail = node; 
+	}else if (list->size == 1){
+		list->head->next = node; 
+		list->tail = node; 
 	}else{
-
 		list->tail->next = node; 
 		list->tail = node; 
+		
 	}
+	node->next = NULL;
+	list->size += 1;
+
+	print_list(list);
+	printf(" HEAD  %d, TAIL %d SIZE %ld\n", list->head->threadnum, list->tail->threadnum, list->size);
+	//printf(" HEAD NEXT %p \n", list->head->next);
 	//	printf("	INSERT LIST2 : NULL HEAD THREAD %d, Status %d  \n",list->head->thread->threadID, node->thread->status);
 	//	printf("	INSERT LIST3 : NULL TAIL THREAD %d, Status %d  \n", list->tail->thread->threadID, node->thread->status);
 	
@@ -131,7 +140,7 @@ void insert_front_list(node_t* node, linked_t* list){
 
 	node->next = list->head; 
 	list->head = node; 
-
+	list->size +=1;
 }
 
 /* give CPU possession to other user-level worker threads voluntarily */
@@ -152,14 +161,13 @@ int worker_yield() {
 
 /* terminate a thread */
 void worker_exit(void *value_ptr) {
-
+	
+	//printf("IN EXIT\n");
 	if(value_ptr != NULL){
 		currentTCB->exitvals = value_ptr;
 	}
 
-	currentTCB->status = ZOMBIE; 
-	free(currentTCB->stack);
-	free(currentTCB->context);
+	
 
 	insert_list(create_node(currentTCB), freeli);
 	//printf("Free List H %p\n", freeli->head);
@@ -171,7 +179,11 @@ void worker_exit(void *value_ptr) {
 		waiterthr->status = READY; 
 	}
 	printf("IN EXIT : RUNQ Head : %p\n", runq->head);
-	printf("EXIT : Current Context %d\n", currentTCB->threadID);
+	printf("EXIT : Current Context %d\n EXIT TO SCHEDULE \n", currentTCB->threadID);
+
+	free(currentTCB->stack);
+	free(currentTCB->context);
+	currentTCB->status = ZOMBIE; 
 	setcontext(schedulectx);
 	printf("IN Exit: Passed setcontext\n");
 
@@ -182,7 +194,8 @@ void worker_exit(void *value_ptr) {
  
 /* Wait for thread termination */
 int worker_join(worker_t thread, void **value_ptr) {
-
+	 printf(" JOINING TWO THREADS : CALLED BY %d, WAITING ON %d \n ", currentTCB->threadID, thread);
+	
 	tcb* waiteethread = thrdarr->array[thread]; 
 
 	if(value_ptr != NULL){
@@ -190,16 +203,20 @@ int worker_join(worker_t thread, void **value_ptr) {
 	}
 
 	if(waiteethread->status != ZOMBIE){
+
+		printf("WAITING ON THREAD %d \n STATUS %d \n", waiteethread->threadID, waiteethread->status);
 		currentTCB->status = WAIT; 
 		waiteethread->waiter = currentTCB->threadID; 
 		printf("			wackjoin + %d\n waitee : %d\n", waiteethread->waiter, thread);
-		swapcontext(currentTCB->context, schedulectx);
+		
+	}else{
+		currentTCB->status = READY;  
 	} 
 
-	//currentTCB->status = READY;  
+	
 	
 	//waitee thread always is in the free list at this point. remember to update the tcb pointer in the free list
-	free(waiteethread);
+	//free(waiteethread);
 	//printf("wackjoin + %d\n", currentTCB->status);
 	swapcontext(currentTCB->context, schedulectx);
  
@@ -214,7 +231,16 @@ int worker_join(worker_t thread, void **value_ptr) {
 int worker_mutex_init(worker_mutex_t *mutex, 
                           const pthread_mutexattr_t *mutexattr) {
 	//- initialize data structures for this mutex
-	
+	/*
+	*/
+
+		mutex = malloc(sizeof(worker_mutex_t));
+		mutex->lockq = malloc(sizeof(linked_t));
+		mutex->lockq->head = NULL;
+		mutex->lockq->tail = NULL; 
+		mutex->lockq->size = 0;
+
+		mutex->thread = -1; 
 
 
 	// YOUR CODE HERE
@@ -229,6 +255,7 @@ int worker_mutex_lock(worker_mutex_t *mutex) {
         // - if acquiring mutex fails, push current thread into block list and
         // context switch to the scheduler thread
 
+			
         // YOUR CODE HERE
         return 0;
 };
@@ -286,48 +313,69 @@ static void sched_psjf() {
 	// - your own implementation of PSJF
 	// (feel free to modify arguments and return types)
 	while(1){
+		printf("\n SCHEDULER \n");
+//	printf("RUNQ %p\n", runq->head);
+	print_list(runq);
+		node_t* currentnode = list_pop_minq(runq); //must perform list search, cannot pop immediately
 		
-		node_t* currentnode = list_pop(runq); //must perform list search, cannot pop immediately
+		print_list(runq);
 		currentTCB = currentnode->thread; 
-		printf("\n	START SCHED NODE POPPED %d\n", currentnode->threadnum);
+		printf("\n	START SCHED NODE  %d\n", currentnode->threadnum);
 		if(currentTCB->status == READY || currentTCB->status == MAIN){
 			//printf("THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
 			currentTCB->status = RUN; 
 			printf(" PRIOR SWAP THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
+			
+			
 			setitimer(ITIMER_PROF, &timer, NULL);
+			
 			swapcontext(schedulectx, currentTCB->context);
+			
+			//timer.it_value.tv_usec = 0;
+			//setitimer(ITIMER_PROF, &timer, NULL);
 
 			currentTCB->quantused += 1;
 			printf("AFTER SWAP THREAD %d STATUS %d\n", currentTCB->threadID, currentTCB->status);
 			
+			if(currentTCB == mainTCB){
+				insert_list(currentnode, runq);
+
+				printf("MAIN INSERTED\n");
+				continue; 
+			}
 		
 		}
+		
+
+
 		//if zombie(exited) or wait(blocked), insert into appropriate list
 		if(currentTCB->status == ZOMBIE){
 			insert_list(currentnode, zombielist);
 			printf("ZOMBIED : %d\n", currentnode->threadnum);
 		}
 		if( currentTCB->status == WAIT){
+
+			if(runq->head == NULL){
+				currentTCB->status = READY;
+			}
+			
 			insert_list(currentnode, runq);
 			printf("WAITING\n");
+			
+			//exit(0);
 		}
-		//if thread has not terminated, insert into the front/back of the list based on the quantum used. 
+		//if thread has not terminated, insert into the list inorder location.
 		if(currentTCB->status == RUN){
 				currentTCB->status = READY;
-				if(runq->head == NULL){
+			 /*	if(runq->head == NULL){
 					insert_list(currentnode, runq);
 					printf("NULL HEAD EXCHANGED CURRENT HEAD \n");
-				}
-				printf("HEAD ID %d HEAD Qu %d, Current ID %d Current Qu %d \n ", 
+				} */
+				insert_list(currentnode, runq);
+				printf("AFTER INSERT HEAD ID %d HEAD Qu %d, Current ID %d Current Qu %d \n ", 
 				runq->head->threadnum, runq->head->thread->quantused, 
-				currentTCB->threadID, currentTCB->quantused );
+				runq->tail->threadnum, runq->tail->thread->quantused);
 
-				if(runq->head->thread->quantused > currentTCB->quantused ){
-
-					insert_front_list(currentnode, runq);
-				}else{
-					insert_list(currentnode, runq);
-				}
 				
 		}
 
@@ -378,6 +426,91 @@ void print_app_stats(void) {
 
  }
 
+unsigned int find_min_index(linked_t* list){
+
+	unsigned int index = 0;
+	unsigned int counter = 0;
+	node_t* current = list->head; 
+
+	unsigned int min = __INT_MAX__;
+
+	while(current != NULL){
+
+		if(current->thread->quantused < min){
+			min = current->thread->quantused;
+			index = counter; 
+
+		}
+
+		counter++;
+		current = current->next; 
+	}
+
+	return index; 
+}
+
+node_t* list_pop_index(linked_t* list, unsigned int index){
+
+	node_t* pop = NULL;
+	node_t* current = list->head; 
+	//printf("POP POP\n");
+	if(index == 0){
+		pop = list->head; 
+		list->head = list->head->next; 
+
+		return pop;
+	}
+	
+	for(int i =0; i<index-1; i++){
+		current = current->next; 
+	}
+
+	pop = current->next; 
+	//printf("POP POP\n");
+	current->next = current->next->next; 
+	
+	return pop;
+}
+
+static void print_list(linked_t* list){
+
+	node_t* current = list->head; 
+printf("\n LIST ");
+	while(current != NULL){
+		
+		printf(" >>> %d ", current->threadnum);
+		current = current->next; 
+	}
+	printf(" \n ");
+
+	
+	//exit(0);
+}
+
+static node_t* list_pop_minq(linked_t* list){
+
+	
+	node_t* pop = NULL;
+
+	if(list->size == 0){
+		return NULL;
+	}
+	//printf("POP POP\n");
+	unsigned int mindex = find_min_index(list);
+//	printf("LIST MININDEX %d\n", mindex);
+	pop = list_pop_index(list, mindex);
+
+	list->size -=1;
+
+//	print_list(list);
+	printf("POPPED THREAD %d, QU %d LIST SIZE %ld\n", pop->thread->threadID, pop->thread->quantused, list->size);
+	pop->next = NULL;
+	return pop; 
+
+}
+
+
+
 static void basicsched(){
 	while(1){
 		//printf("status %d, ThreadID %d\n", mainTCB->status, mainTCB->threadID);
@@ -394,8 +527,10 @@ static void basicsched(){
 			
 			currentTCB->status = RUN; 
 			printf("IN SCHED : List Head : %p\n  Current Context %d\n", runq->head, currentTCB->threadID);
-			setitimer(ITIMER_PROF, &timer, NULL);
+			
+		
 			swapcontext(schedulectx, currentTCB->context);
+			
 			
 
 			if(currentTCB == mainTCB ){
@@ -429,7 +564,7 @@ static void basicsched(){
 }
 
 void ring(int signum){
-	printf("TIMER DEATH\n");
+	//printf("TIMER DEATH\n");
 	swapcontext(currentTCB->context, schedulectx);
 	
 }
@@ -456,6 +591,7 @@ void worker_init(){
 
 	//ZOMBIE LIST
 	zombielist = malloc(sizeof(linked_t));
+	zombielist->size = 0;
 	zombielist->head = NULL;
 	zombielist->tail = NULL; 
 
@@ -465,6 +601,7 @@ void worker_init(){
 	thrdarr->size = 0; 
 	
 	thrdarr->freelist = malloc(sizeof(linked_t));
+	thrdarr->freelist->size = 0;
 	thrdarr->freelist->head = NULL;
 	thrdarr->freelist->tail = NULL; 
 
@@ -473,6 +610,7 @@ void worker_init(){
 	//List Setup
 			runq = malloc(sizeof(linked_t)); 
 			//printf("%p\n", runq); 
+			runq->size = 0;
 			runq->head = NULL;
 			runq->tail = NULL; 
 

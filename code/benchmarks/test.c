@@ -29,12 +29,14 @@ void green(){
  
 void red(){
 	printf("red\n");
-	worker_t wack1[1];
-	worker_create(wack1, NULL, green, NULL);
-	worker_join(wack1[0], NULL);
+	worker_t wack1[10];
+	//worker_create(wack1, NULL, green, NULL);
+	//printf(" WACK 1 %d\n", wack1);
+	printf("red2\n");
+	//worker_join(wack1[0], NULL);
  
 	for(int i =0; i<10000000; i++);
-	printf("red2\n");
+	printf("red3\n");
 	worker_exit(NULL);
 }
 
@@ -68,7 +70,8 @@ printf(" IN MAIN : passcreate\n");
 	worker_join(wack[5], NULL);
 	worker_join(wack[6], NULL);
 	worker_join(wack[7], NULL); 
-
+ 
+ 
 
 	printf("IN MAIN :passjoin\n");
 

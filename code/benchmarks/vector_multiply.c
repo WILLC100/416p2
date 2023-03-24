@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 #include "../thread-worker.h"
 
 #define DEFAULT_THREAD_NUM 2
@@ -17,15 +18,17 @@ int sum = 0;
 
 /* A CPU-bound task to do vector multiplication */
 void vector_multiply(void* arg) {
+
+	//printf("IN VM\n");
 	int i = 0;
 	int n = *((int*) arg);
-	
+	//printf("IN VM\n");
 	for (i = n; i < VECTOR_SIZE; i += thread_num) {
 		pthread_mutex_lock(&mutex);
 		sum += r[i] * s[i];
 		pthread_mutex_unlock(&mutex);	
 	}
-
+	//printf("IN VM\n");
 	pthread_exit(NULL);
 }
 

@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <sys/time.h>
 #include <string.h>
+#include <stdatomic.h>
 
 
 typedef uint worker_t;
@@ -46,13 +47,15 @@ typedef struct TCB {
 	// thread stack
 		void* stack; 
 	// thread priority
-		uint priority; 
+		unsigned int priority; 
 	// And more ...
 		void* exitvals; 
 	//thread waiting on this thread 
 		int waiter; 
 
-		uint quantused; 
+		unsigned int quantused; 
+
+		struct worker_mutext_t* waitmut; 
 
 	// YOUR CODE HERE
 } tcb; 
@@ -67,6 +70,7 @@ typedef struct node_t{
 
 typedef struct linked_t{
 
+	size_t size;
 	node_t* head; 
 	node_t* tail; 
 
@@ -76,7 +80,7 @@ typedef struct linked_t{
 typedef struct staticthreadarr{
 
 	tcb** array; 
-	uint size; 
+	unsigned int size; 
 	linked_t* freelist; 
 
 } threadarr; 
@@ -86,11 +90,9 @@ typedef struct staticthreadarr{
 typedef struct worker_mutex_t {
 	/* add something here */
 
-	bool mutinit;
+	int thread; 
 
-	worker_t threadID; 
-	
-	tcb* mutTCB; 
+	linked_t* lockq;
 
 	// YOUR CODE HERE
 } worker_mutex_t;
